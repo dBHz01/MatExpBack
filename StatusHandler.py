@@ -13,6 +13,7 @@ class StatusHandler():
         self.press_pressure = press_pressure
         # self.c = CallAfterTimes(self.print_status, 60)
         self.click_break_time = click_break_time
+        self.last_click_time = 0
 
     def update_data(self, data):
         self.data = data
@@ -37,6 +38,7 @@ class StatusHandler():
         
         if (not self.press):
             if (self.long_press_time < self.click_break_time and self.long_press_time > 0.05):
+                self.last_click_time = time.time()
                 self.click = True
     
     def update_long_press(self):

@@ -109,7 +109,7 @@ class TaskHandler(object):
         if (max_row < 2):
             peak = 1.5
 
-    def move_mouse(self, **kwargs):
+    def move_mouse(self):
         my_generator = mask_thumb_data([[0, 0], [self.center_col, self.col_num]], self.thumb_data)
         my_generator = self.mouse_processor.gen_points(my_generator)
         row, col, val = next(my_generator)
@@ -121,22 +121,18 @@ class TaskHandler(object):
         #     print(x, y, val)
         #     check_times = 0
         
-        if ("click" in kwargs.keys()):
-            if (kwargs["click"] == True):
-                pyautogui.leftClick()
-                print("left_click")
 
         if not self.trackpoint:
             pyautogui.moveTo(x, y, _pause=False)
         else:
             pyautogui.move(x, y, _pause=False)
-        time.sleep(0.002)  # about > 194 fps
+        time.sleep(0.001)  # about > 194 fps
 
-    def run_task(self, mode, **kwargs):
+    def run_task(self, mode):
         if (mode == 0):
             self.remote_control()
         elif (mode == 1):
-            self.move_mouse(**kwargs)
+            self.move_mouse()
 
 
 def mask_thumb_data(mask, data):

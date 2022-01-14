@@ -102,6 +102,8 @@ class Controller(object):
         self.thumb_status = thumb_status
         self.index_status = index_status
         self.cal_fps = CalFps(1)
+        self.click_state = 0 # state machine
+
 
     def gen_panel_message(self):
         packet = {"type": 0}
@@ -147,10 +149,46 @@ class Controller(object):
         self.thumb_status.update_data(self.thumb_data)
         self.index_status.update_data(self.index_data)
 
-    def handle_task(self, **kwargs):
+    def handle_task(self):
         self.task_handler.update_thumb_data(self.thumb_data)
-        self.task_handler.run_task(self.mode, **kwargs)
-    
+        self.task_handler.run_task(self.mode)
+
+    def handle_click(self):
+        both_click_break_time = 0.1
+        if (self.thumb_status.click and self.index_status.click):
+            print("both click")
+            self.click_state = 0
+            return
+        if (self.click_state == 0):
+            if (self.thumb_status.click):
+                if (not self.index_status.press):
+                    print("thumb click 1", time.time())
+                else:
+                    self.click_state = 1
+            if (self.index_status.click):
+                if (not self.thumb_status.press):
+                    print("index click 1", time.time())
+                else:
+                    self.click_state = 2
+        elif (self.click_state == 1):
+            # wait for index click
+            if (time.time() - self.thumb_status.last_click_time >= both_click_break_time):
+                print("thumb click 2", time.time())
+                self.click_state = 0
+            else:
+                if (self.index_status.click):
+                    print("both click")
+                    self.click_state = 0
+        elif (self.click_state == 2):
+            # wait for thumb click
+            if (time.time() - self.index_status.last_click_time >= both_click_break_time):
+                print("index click 2", time.time())
+                self.click_state = 0
+            else:
+                if (self.thumb_status.click):
+                    print("both click")
+                    self.click_state = 0
+            
     def update_mode(self):
         if (self.thumb_status.check_long_press() and self.index_status.check_long_press()):
             # self.mode = 1 - self.mode # change to the other mode
@@ -163,7 +201,8 @@ class Controller(object):
             self.cal_fps.run()
             self.update_finger_data()
             self.update_finger_status()
-            self.handle_task(click=self.index_status.click)
+            self.handle_task()
+            self.handle_click()
             self.update_mode()
             # time.sleep(0.002)
 
