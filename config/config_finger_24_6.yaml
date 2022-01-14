@@ -48,6 +48,10 @@ connection:  ## use defaults
   ## UNIX deomain socket address format: /var/tmp/unix.socket.server
   server_address: ~
   client_address: ~
+  thumb_address: 127.0.0.1:25530
+  index_address: 127.0.0.1:25531
+  thumb_client_address: 127.0.0.1:25532
+  index_client_address: 127.0.0.1:25533
 
 process:
   ## reference voltage: 255, 255/3.6*3.3
@@ -93,7 +97,7 @@ pointing:
   ## directly map coordinates or relatively (suppress trackpoint)
   direct_map: ~
   ## use ThinkPad's TrackPoint (red dot) control style
-  trackpoint: ~
+  trackpoint: true
   ## smoothing
   alpha: ~
   ## mapcoor
