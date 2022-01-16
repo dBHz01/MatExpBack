@@ -103,6 +103,7 @@ class Controller(object):
         self.index_status = index_status
         self.cal_fps = CalFps(1)
         self.click_state = 0 # state machine
+        self.mouse_down = False
 
 
     def gen_panel_message(self):
@@ -157,36 +158,66 @@ class Controller(object):
         both_click_break_time = 0.1
         if (self.thumb_status.click and self.index_status.click):
             print("both click")
+            pyautogui.rightClick()
             self.click_state = 0
             return
         if (self.click_state == 0):
             if (self.thumb_status.click):
                 if (not self.index_status.press):
                     print("thumb click 1", time.time())
+                    if (self.thumb_status.double_click):
+                        print("thumb double click")
                 else:
                     self.click_state = 1
             if (self.index_status.click):
                 if (not self.thumb_status.press):
-                    print("index click 1", time.time())
+                    if (self.mouse_down):
+                        self.mouse_down = False
+                        pyautogui.mouseUp()
+                    else:
+                        print("index click 1", time.time())
+                        pyautogui.leftClick()
+                    if (self.index_status.double_click):
+                        print("index double click")
+                        pyautogui.doubleClick()
                 else:
                     self.click_state = 2
+            # check index long press
+            if (self.index_status.long_press and not self.thumb_status.press):
+                self.index_status.trigger_long_press()
+                print("mouse down")
+                pyautogui.mouseDown()
+                self.mouse_down = True
+
         elif (self.click_state == 1):
             # wait for index click
             if (time.time() - self.thumb_status.last_click_time >= both_click_break_time):
                 print("thumb click 2", time.time())
+                if (self.thumb_status.double_click):
+                    print("thumb double click")
                 self.click_state = 0
             else:
                 if (self.index_status.click):
                     print("both click")
+                    pyautogui.rightClick()
                     self.click_state = 0
         elif (self.click_state == 2):
             # wait for thumb click
             if (time.time() - self.index_status.last_click_time >= both_click_break_time):
-                print("index click 2", time.time())
+                if (self.mouse_down):
+                    self.mouse_down = False
+                    pyautogui.mouseUp()
+                else:
+                    print("index click 2", time.time())
+                    pyautogui.leftClick()
+                if (self.index_status.double_click):
+                    print("index double click")
+                    pyautogui.doubleClick()
                 self.click_state = 0
             else:
                 if (self.thumb_status.click):
                     print("both click")
+                    pyautogui.rightClick()
                     self.click_state = 0
             
     def update_mode(self):

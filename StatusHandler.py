@@ -5,7 +5,9 @@ class StatusHandler():
     def __init__(self, interp = [6, 6], min_long_press_time = 1, press_pressure = 2, click_break_time = 0.5):
         self.data = [[0] * interp[1]] * interp[0]
         self.press = False
+        self.long_press = False # set True once after release the long press and not triggered
         self.click = False
+        self.double_click = False
         self.long_press_time = 0
         self.long_press_triggered = False
         self.min_long_press_time = min_long_press_time
@@ -19,6 +21,8 @@ class StatusHandler():
         self.data = data
         self.update_press()
         self.update_click()
+        self.update_double_click()
+        self.update_last_click_time()
         self.update_long_press()
         # self.c.run()
 
@@ -38,20 +42,36 @@ class StatusHandler():
         
         if (not self.press):
             if (self.long_press_time < self.click_break_time and self.long_press_time > 0.05):
-                self.last_click_time = time.time()
+                # self.last_click_time = time.time()
                 self.click = True
+
+    def update_double_click(self):
+        double_click_break_time = 0.3
+        if (self.double_click == True):
+            self.double_click = False
+            return
+        if (self.click):
+            if (time.time() - self.last_click_time < double_click_break_time):
+                self.double_click = True
+
+    def update_last_click_time(self):
+        if (self.click):
+            self.last_click_time = time.time()
     
     def update_long_press(self):
+        if (self.long_press == True):
+            self.long_press = False
         if (self.press):
             if (self.start_press_time == 0):
                 self.start_press_time = time.time()
             else:
                 self.long_press_time = time.time() - self.start_press_time
+                if (self.long_press_time >= 1 and not self.long_press_triggered):
+                    self.long_press = True
         else:
             self.start_press_time = 0
             self.long_press_time = 0
-
-    
+            
 
     def check_long_press(self):
         return self.long_press_time > self.min_long_press_time and not self.long_press_triggered

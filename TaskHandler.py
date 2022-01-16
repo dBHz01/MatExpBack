@@ -7,7 +7,7 @@ from matsense.process import Processor
 
 
 class TaskHandler(object):
-    def __init__(self, center_col, trackpoint = True, interp = [6, 6], col_num = 10):
+    def __init__(self, center_col, trackpoint = True, interp = [6, 6], col_num = 12):
         self.thumb_data = [[0] * interp[1]] * interp[0]
         self.trackpoint = trackpoint
         self.interp = interp
