@@ -7,7 +7,7 @@ from matsense.process import Processor
 
 
 class TaskHandler(object):
-    def __init__(self, center_col, trackpoint = True, interp = [6, 6], col_num = 12):
+    def __init__(self, center_col, trackpoint = True, interp = [6, 6], col_num = 16):
         self.thumb_data = [[0] * interp[1]] * interp[0]
         self.trackpoint = trackpoint
         self.interp = interp
@@ -199,6 +199,6 @@ def point_to_movement(row, col, val):
     direction = np.array([row - 0.5, col - 0.5])
     distance_to_center = np.linalg.norm(direction)
     direction = direction / distance_to_center
-    x = direction[0] * pressure_function(val) * distance_function(distance_to_center)
+    x = direction[0] * pressure_function(val) * distance_function(distance_to_center) * 1.5
     y = direction[1] * pressure_function(val) * distance_function(distance_to_center)
     return x, y

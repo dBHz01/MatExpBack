@@ -79,7 +79,7 @@ process:
   ## calibration frame window size, 0 for static and >0 for dynamic: 0, 10000
   cali_win_size: 0
   ## interpolation shape, default to sensor.shape
-  interp: [6, 6]
+  interp: [24, 6]
   ## interpolation order: 3
   interp_order: ~
   ## filter out blobs: true

@@ -31,6 +31,7 @@ def calibrate_center(generator, times):
     for _ in range(times):
         __ = input("begin calibration, please press and then press enter button")
         data = next(generator)
+        print(max([sum(j) for j in data]))
         sequence_length = len(data)
         sum_data = []
         for i in range(sequence_length):
@@ -86,7 +87,7 @@ TH = 0.15
 UDP = False
 
 class Controller(object):
-    def __init__(self, thumb_client, index_client, task_handler, thumb_status, index_status):
+    def __init__(self, thumb_client, index_client):
         super(Controller, self).__init__()
         self.url = "ws://127.0.0.1:7778"
         self.ws = None
@@ -94,16 +95,38 @@ class Controller(object):
         self.sensor_thumb = False
         self.sensor_index = False
         self.mode_change_ratio = 0
+        self.raw_thumb_data = [[0] * 6] * 24
         self.thumb_data = [[0] * 6] * 24
         self.index_data = [[0] * 6] * 24
         self.thumb_client = thumb_client
         self.index_client = index_client
-        self.task_handler = task_handler
-        self.thumb_status = thumb_status
-        self.index_status = index_status
+        self.thumb_processor = Processor(
+            config['process']['interp'], 
+            blob=config['process']['blob'], 
+            threshold=config['process']['threshold'],
+            order=config['process']['interp_order'],
+            total=config['process']['blob_num'],
+            special=config['process']['special_check'],
+        )
+        self.index_processor = Processor(
+            config['process']['interp'], 
+            blob=config['process']['blob'], 
+            threshold=config['process']['threshold'],
+            order=config['process']['interp_order'],
+            total=config['process']['blob_num'],
+            special=config['process']['special_check'],
+        )
+        self.thumb_generator = self.thumb_processor.gen_wrapper(self.thumb_client.gen())
+        self.index_generator = self.index_processor.gen_wrapper(self.index_client.gen())
+        self.center_col = calibrate_center(self.thumb_generator, 5)
+        calibrate_center(self.index_generator, 1)
+        self.task_handler = TaskHandler(10)
+        self.thumb_status = StatusHandler(press_pressure=20)
+        self.index_status = StatusHandler(press_pressure=20)
         self.cal_fps = CalFps(1)
         self.click_state = 0 # state machine
         self.mouse_down = False
+        self.both_click = False
 
 
     def gen_panel_message(self):
@@ -143,8 +166,20 @@ class Controller(object):
         print("####### on_close #######")
     
     def update_finger_data(self):
-        self.thumb_data = next(self.thumb_client.gen())
-        self.index_data = next(self.index_client.gen())
+        self.raw_thumb_data = next(self.thumb_client.gen())
+        self.thumb_data = self.thumb_processor.transform(self.raw_thumb_data)
+        self.index_data = next(self.index_generator)
+        with open("./thumb_data.csv", "a") as f:
+            for i in self.thumb_data:
+                for j in i:
+                    f.write(str(j) + ",")
+            f.write("\n")
+
+        with open("./index_data.csv", "a") as f:
+            for i in self.index_data:
+                for j in i:
+                    f.write(str(j) + ",")
+            f.write("\n")
 
     def update_finger_status(self):
         self.thumb_status.update_data(self.thumb_data)
@@ -157,7 +192,7 @@ class Controller(object):
     def handle_click(self):
         both_click_break_time = 0.1
         if (self.thumb_status.click and self.index_status.click):
-            print("both click")
+            print("both click 1")
             pyautogui.rightClick()
             self.click_state = 0
             return
@@ -219,6 +254,42 @@ class Controller(object):
                     print("both click")
                     pyautogui.rightClick()
                     self.click_state = 0
+
+    def handle_both_double_click(self):
+        both_double_click_break_time = 0.5
+        if (self.thumb_status.double_click and self.index_status.double_click):
+            print("both double click")
+            self.click_state = 0
+            return
+        if (self.click_state == 0):
+            if (self.thumb_status.double_click):
+                if (not self.index_status.press):
+                    print("thumb double click 1", time.time())
+                else:
+                    self.click_state = 1
+            if (self.index_status.double_click):
+                if (not self.thumb_status.press):
+                    print("index double click 1", time.time())
+                else:
+                    self.click_state = 2
+        elif (self.click_state == 1):
+            # wait for index double_click
+            if (time.time() - self.thumb_status.last_double_click_time >= both_double_click_break_time):
+                print("thumb double_click 2", time.time())
+                self.click_state = 0
+            else:
+                if (self.index_status.double_click):
+                    print("both double click")
+                    self.click_state = 0
+        elif (self.click_state == 2):
+            # wait for thumb double_click
+            if (time.time() - self.index_status.last_double_click_time >= both_double_click_break_time):
+                print("index double_click 2", time.time())
+                self.click_state = 0
+            else:
+                if (self.thumb_status.double_click):
+                    print("both double click")
+                    self.click_state = 0
             
     def update_mode(self):
         if (self.thumb_status.check_long_press() and self.index_status.check_long_press()):
@@ -234,6 +305,7 @@ class Controller(object):
             self.update_finger_status()
             self.handle_task()
             self.handle_click()
+            self.handle_both_double_click()
             self.update_mode()
             # time.sleep(0.002)
 
@@ -298,9 +370,5 @@ if __name__ == '__main__':
             udp=config['connection']['udp'],
             n=config['sensor']['shape']
         ) as index_client:
-            center_col = calibrate_center(thumb_client.gen(), 5)
-            task_handler = TaskHandler(center_col)
-            thumb_status = StatusHandler(press_pressure=2)
-            index_status = StatusHandler(press_pressure=0.5)
-            Controller(thumb_client, index_client, task_handler, thumb_status, index_status).start()
+            Controller(thumb_client, index_client).start()
 

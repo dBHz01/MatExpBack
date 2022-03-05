@@ -16,6 +16,12 @@ class StatusHandler():
         # self.c = CallAfterTimes(self.print_status, 60)
         self.click_break_time = click_break_time
         self.last_click_time = 0
+        self.last_double_click_time = 0
+        self.max_click_pressure = 0
+        self.min_click_pressure = 1000
+        self.click_up_ratio = 0.8 # under ratio * max_click_pressure trigger a click
+        self.click_down_ratio = 1.1 # over ratio * min_click_pressure, begin a new round of click
+        self.click_state = 0 # 0 for up and 1 for down
 
     def update_data(self, data):
         self.data = data
@@ -23,6 +29,7 @@ class StatusHandler():
         self.update_click()
         self.update_double_click()
         self.update_last_click_time()
+        self.update_last_double_click_time()
         self.update_long_press()
         # self.c.run()
 
@@ -41,22 +48,48 @@ class StatusHandler():
             self.click = False
         
         if (not self.press):
-            if (self.long_press_time < self.click_break_time and self.long_press_time > 0.05):
-                # self.last_click_time = time.time()
+            if (self.long_press_time < self.click_break_time and self.long_press_time > 0.001):
                 self.click = True
 
+        # if (self.press):
+        #     cur_pressure = max([sum(j) for j in self.data])
+        #     if (self.click_state == 0):
+        #         self.max_click_pressure = max(self.max_click_pressure, cur_pressure)
+        #         if (cur_pressure < self.click_up_ratio * self.max_click_pressure):
+        #             self.click = True
+        #             self.click_state = 1
+        #             print("max_pressure", self.max_click_pressure)
+        #             self.min_click_pressure = 1000
+        #     elif (self.click_state == 1):
+        #         self.min_click_pressure = min(self.min_click_pressure, cur_pressure)
+        #         if (cur_pressure > self.click_down_ratio * self.min_click_pressure):
+        #             self.click_state = 0
+        #             self.max_click_pressure = 0
+        #             print("min_pressure", self.min_click_pressure)
+        # else:
+        #     self.click_state = 0
+        #     self.min_click_pressure = 1000
+        #     self.max_click_pressure = 0
+
+
     def update_double_click(self):
-        double_click_break_time = 0.3
+        double_click_break_time = 0.5
         if (self.double_click == True):
             self.double_click = False
             return
         if (self.click):
+            # print(time.time() - self.last_click_time)
             if (time.time() - self.last_click_time < double_click_break_time):
                 self.double_click = True
+                # print("double click")
 
     def update_last_click_time(self):
         if (self.click):
             self.last_click_time = time.time()
+
+    def update_last_double_click_time(self):
+        if (self.double_click):
+            self.last_double_click_time = time.time()
     
     def update_long_press(self):
         if (self.long_press == True):
@@ -81,7 +114,7 @@ class StatusHandler():
 
     def print_status(self):
         print("press ", self.press)
-        print("long press time ", self.long_press_time, " s")
-        print("long press triggered ", self.long_press_triggered)
+        # print("long press time ", self.long_press_time, " s")
+        # print("long press triggered ", self.long_press_triggered)
         print("sum ", max([sum(j) for j in self.data]))
-        # print("click ", self.click)
+        print("click ", self.click)
