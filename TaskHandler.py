@@ -1,20 +1,37 @@
 import time
-import json
-from tkinter.messagebox import NO
 import pyautogui
 import numpy as np
 from matsense.process import Processor
-
+from WebClient import CursorClient, IP, PORT
 
 class TaskHandler(object):
-    def __init__(self, center_col, trackpoint = True, interp = [6, 6], col_num = 16):
-        self.thumb_data = [[0] * interp[1]] * interp[0]
+    def __init__(self, center_col, trackpoint = True, interp = [32, 4], col_num = 16):
+        self.my_remote_handle = CursorClient(IP, PORT)
+        self.thumb_data = np.zeros(interp)
         self.trackpoint = trackpoint
         self.interp = interp
         self.center_col = center_col
         self.col_num = col_num
         self.mouse_processor = Processor(self.interp)
         self.mouse_processor.print_info()
+        self.check_times = 0
+        self.left_range = []
+        self.right_range = []
+        self.up_range = []
+        self.down_range = []
+        self.dtime = 0
+        self.peak = 1.5
+        self.last_press = False
+        self.last_direction = "right"
+        self.last_timer = 0
+        self.last_send_time = 0
+
+    def update_control_value(self, center_col):
+        data_shape = self.thumb_data.shape
+        self.right_range = [i % data_shape[0] for i in range(center_col - 4, center_col + 4)]
+        self.down_range = [i % data_shape[0] for i in range(center_col + 4, center_col + 12)]
+        self.left_range = [i % data_shape[0] for i in range(center_col + 12, center_col + 20)]
+        self.up_range = [i % data_shape[0] for i in range(center_col + 20, center_col + 28)]
 
     def update_thumb_data(self, thumb_data):
         self.thumb_data = thumb_data
@@ -25,89 +42,71 @@ class TaskHandler(object):
         LEFT_THRESHOLD = 1.8
         UP_THRESHOLD = 2
         DOWN_THRESHOLD = 2
-        last_press = False
-        last_direction = "right"
-        last_timer = 0
-        dtime = 0
-        peak = 1.5
-        last_send_time = 0
         SEND_INTERVAL = 0.2
-        max_row = 0
-        for i in range(len(self.thumb_data)):
-            sum_row = self.thumb_data[i]
-            if sum_row > max_row:
-                max_row = sum_row
-                max_id = i
-        if max_id < 5 or max_id > 22:
-            if max_row > peak / 3 and max_row > DOWN_THRESHOLD:
-                if max_row > peak:
-                    peak = max_row
-                # print(max_row)
-                # print(max_id)
-                last_direction = "down"
-                last_press = True
-                dtime = int((time.time() - last_timer) * 1000)
-                if dtime > 500:
-                    print((dtime - 500) / 1000)
+        from Controller import calculate_center_col
+        max_id, max_row = calculate_center_col(self.thumb_data, "max")
+        if max_id in self.down_range:
+            if max_row > self.peak / 3 and max_row > DOWN_THRESHOLD:
+                if max_row > self.peak:
+                    self.peak = max_row
+                self.last_direction = "down"
+                self.last_press = True
+                self.dtime = int((time.time() - self.last_timer) * 1000)
+                # if self.dtime > 500:
+                #     print((self.dtime - 500) / 1000)
                 return
-        elif max_id <= 9:
-            if max_row > peak / 3 and max_row > RIGHT_THRESHOLD:
-                # print(peak)
-                if max_row > peak:
-                    peak = max_row
-                # print(max_row)
-                # print(max_id)
-                last_direction = "right"
-                last_press = True
-                dtime = int((time.time() - last_timer) * 1000)
-                # if dtime > 500:
-                # 	print((dtime - 500) / 1000)
+        elif max_id in self.right_range:
+            if max_row > self.peak / 3 and max_row > RIGHT_THRESHOLD:
+                if max_row > self.peak:
+                    self.peak = max_row
+                self.last_direction = "right"
+                self.last_press = True
+                self.dtime = int((time.time() - self.last_timer) * 1000)
+                # if self.dtime > 500:
+                # 	print((self.dtime - 500) / 1000)
                 return
-        elif max_id <= 16:
-            if max_row > peak / 3 and max_row > UP_THRESHOLD:
-                if max_row > peak:
-                    peak = max_row
-                # print(max_row)
-                # print(max_id)
-                last_direction = "up"
-                last_press = True
-                dtime = int((time.time() - last_timer) * 1000)
-                # if dtime > 500:
-                # 	print((dtime - 500) / 1000)
+        elif max_id in self.up_range:
+            if max_row > self.peak / 3 and max_row > UP_THRESHOLD:
+                if max_row > self.peak:
+                    self.peak = max_row
+                self.last_direction = "up"
+                self.last_press = True
+                self.dtime = int((time.time() - self.last_timer) * 1000)
+                # if self.dtime > 500:
+                # 	print((self.dtime - 500) / 1000)
                 return
         else:
-            if max_row > peak / 3 and max_row > LEFT_THRESHOLD:
-                if max_row > peak:
-                    peak = max_row
-                # print(max_row)
-                # print(max_id)
-                last_direction = "left"
-                last_press = True
-                dtime = int((time.time() - last_timer) * 1000)
-                # if dtime > 500:
-                # 	print((dtime - 500) / 1000)
+            if max_row > self.peak / 3 and max_row > LEFT_THRESHOLD:
+                if max_row > self.peak:
+                    self.peak = max_row
+                self.last_direction = "left"
+                self.last_press = True
+                self.dtime = int((time.time() - self.last_timer) * 1000)
+                # if self.dtime > 500:
+                # 	print((self.dtime - 500) / 1000)
                 return
-        last_timer = time.time()
-        if last_press:
-            last_press = False
-            if dtime < 500 and 100 < dtime:
-                if time.time() - last_send_time > SEND_INTERVAL:
-                    print(last_direction)
-                    # print(max_row)
-                    # my_remote_handle.sendButton(last_direction)
-                    self.ws.send(json.dumps(
-                        {"type": 3, "command": last_direction}))
-                    last_send_time = time.time()
-            elif dtime > 1000:
-                if time.time() - last_send_time > SEND_INTERVAL:
-                    # my_remote_handle.sendButton('click')
-                    self.ws.send(json.dumps(
-                        {"type": 3, "command": "click"}))
+        self.last_timer = time.time()
+        if self.last_press:
+            self.last_press = False
+            print(self.dtime)
+            if self.dtime < 1000 and 100 < self.dtime:
+                if time.time() - self.last_send_time > SEND_INTERVAL:
+                    self.my_remote_handle.sendButton(self.last_direction)
+                    # self.ws.send(json.dumps(
+                    #     {"type": 3, "command": self.last_direction}))
+                    print(max_row, self.last_direction)
+                    self.last_send_time = time.time()
+            elif self.dtime > 1000:
+                if time.time() - self.last_send_time > SEND_INTERVAL:
+                    # self.my_remote_handle.sendButton('click')
+                    # self.ws.send(json.dumps(
+                    #     {"type": 3, "command": "click"}))
+                    # print(max_row, max_id, self.last_direction)
                     print("click")
-                    last_send_time = time.time()
-        dtime = 0
+                    self.last_send_time = time.time()
+        self.dtime = 0
         if (max_row < 2):
-            peak = 1.5
+            self.peak = 1.5
 
     def move_mouse(self):
         my_generator = mask_thumb_data([[0, 0], [self.center_col, self.col_num]], self.thumb_data)
@@ -116,10 +115,14 @@ class TaskHandler(object):
         x, y = point_to_movement(row, col, val)
 
         # print the point and pressure
-        # check_times += 1
-        # if (check_times >= 60):
-        #     print(x, y, val)
-        #     check_times = 0
+        self.check_times += 1
+        if (self.check_times >= 60):
+            print(row, col)
+            print(x, y, val)
+            direction = np.array([row - 0.5, col - 0.5])
+            distance_to_center = np.linalg.norm(direction)
+            print("dist", distance_to_center)
+            self.check_times = 0
         
 
         if not self.trackpoint:
@@ -168,19 +171,32 @@ def mask_thumb_data(mask, data):
     except:
         yield data
 
+def sigmoid(x):
+    return 1/(1+np.exp(-x))
+
 def pressure_function(val):
-    if (val < 1):
-        return val
-    elif (val > 6):
-        return 36 + 0.5 * val
+    ## old using quadratic funciton
+    # if (val < 1):
+    #     return val
+    # elif (val > 5):
+    #     return 22.5 + 0.5 * val
+    # else:
+    #     return -1.5 * ((val - 5) ** 2) + 25
+    #     # return val
+
+    ## new using sigmoid function
+    if (val < 6):
+        return sigmoid(val - 5) * 40
+    elif (val < 10):
+        return sigmoid(1) * 40 + (val - 6)
     else:
-        return val ** 2
+        return sigmoid(1) * 40 + 4
 
 def distance_function(dist):
     if (dist <= 0.2):
-        return dist
-    elif (dist <= 0.3):
-        return dist / 0.3
+        return 0.5 * dist
+    elif (dist <= 0.4):
+        return 4.5 * dist - 0.8
     else:
         return 1
 
@@ -199,6 +215,6 @@ def point_to_movement(row, col, val):
     direction = np.array([row - 0.5, col - 0.5])
     distance_to_center = np.linalg.norm(direction)
     direction = direction / distance_to_center
-    x = direction[0] * pressure_function(val) * distance_function(distance_to_center) * 1.5
+    x = direction[0] * pressure_function(val) * distance_function(distance_to_center) * -1 * 3
     y = direction[1] * pressure_function(val) * distance_function(distance_to_center)
     return x, y

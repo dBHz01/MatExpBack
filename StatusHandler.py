@@ -2,7 +2,7 @@ import time
 from tools.CallAfterTimes import CallAfterTimes
 
 class StatusHandler():
-    def __init__(self, interp = [6, 6], min_long_press_time = 1, press_pressure = 2, click_break_time = 0.5):
+    def __init__(self, interp = [12, 4], min_long_press_time = 1, press_pressure = 45, click_break_time = 0.5):
         self.data = [[0] * interp[1]] * interp[0]
         self.press = False
         self.long_press = False # set True once after release the long press and not triggered
